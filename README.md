@@ -135,7 +135,7 @@ Open `http://localhost:3000`
 
 We welcome contributors of all experience levels. See [CONTRIBUTING.md](./CONTRIBUTING.md) to get started.
 
-Browse our [open issues](https://github.com/stellarmarket/stellarmarket/issues) — many are labeled `good first issue`.
+Browse our [open issues](https://github.com/Predict-mart/stellar-market/issues) — many are labeled `good first issue`.
 
 ---
 
