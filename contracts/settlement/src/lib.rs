@@ -1,5 +1,5 @@
 #![no_std]
- 
+
 //! # SettlementContract
 //!
 //! Distributes USDC winnings to holders of the winning `OutcomeToken`
@@ -20,37 +20,36 @@
 //! 1. Oracle finalises resolution → winning `outcome_id` known.
 //! 2. Anyone calls `settle_market()` → pool locked, fee collected.
 //! 3. Winners call `claim_winnings()` → tokens burned, USDC transferred.
- 
+
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror,
-    Address, Env, Symbol, symbol_short, log,
-    token::Client as TokenClient,
+    contract, contracterror, contractimpl, contracttype, log, symbol_short,
+    token::Client as TokenClient, Address, Env, Symbol,
 };
 use stellarmarket_shared::SharedError;
- 
+
 // ============================================================
 // CONSTANTS
 // ============================================================
- 
+
 /// Maximum fee rate in basis points (10% hard cap).
 pub const MAX_FEE_RATE_BPS: u32 = 1_000;
 /// Basis point denominator.
 pub const BPS_DENOMINATOR: u128 = 10_000;
- 
+
 // ============================================================
 // STORAGE KEYS
 // ============================================================
- 
-const KEY_USDC_TOKEN:    Symbol = symbol_short!("USDC");
-const KEY_FEE_RATE:      Symbol = symbol_short!("FEE_RATE");
+
+const KEY_USDC_TOKEN: Symbol = symbol_short!("USDC");
+const KEY_FEE_RATE: Symbol = symbol_short!("FEE_RATE");
 const KEY_FEE_RECIPIENT: Symbol = symbol_short!("FEE_RECV");
-const KEY_ORACLE:        Symbol = symbol_short!("ORACLE");
-const KEY_FACTORY:       Symbol = symbol_short!("FACTORY");
- 
+const KEY_ORACLE: Symbol = symbol_short!("ORACLE");
+const KEY_FACTORY: Symbol = symbol_short!("FACTORY");
+
 // ============================================================
 // DATA TYPES
 // ============================================================
- 
+
 /// Settled state for one market.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -68,11 +67,11 @@ pub struct SettlementRecord {
     /// Whether settlement has been triggered.
     pub settled: bool,
 }
- 
+
 // ============================================================
 // ERRORS
 // ============================================================
- 
+
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
