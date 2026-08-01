@@ -1,6 +1,3 @@
-
-Copy
-
 #![no_std]
  
 //! # OracleContract
@@ -62,7 +59,7 @@ pub struct OracleReport {
     /// Ledger timestamp of submission.
     pub submitted_at: u64,
     /// Provider confidence score (0–100).
-    pub confidence: u8,
+    pub confidence: u32,
 }
  
 /// Aggregated resolution state for a market.

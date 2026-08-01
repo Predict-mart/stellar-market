@@ -7,7 +7,7 @@
 //!
 //! ## Payout formula
 //!
-//! ```
+//! ```text
 //! payout = (user_winning_tokens / total_winning_supply)
 //!          * total_usdc_pool
 //!          * (1 - fee_rate_bps / 10_000)
