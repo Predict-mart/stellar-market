@@ -1,10 +1,10 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, log, symbol_short, Address, Env, Map,
-    String, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String,
+    Symbol, Vec,
 };
-use stellarmarket_shared::{MarketStatus, SharedError, Side};
+use stellarmarket_shared::{MarketStatus, Side};
 
 // ============================================================
 // STORAGE KEYS
@@ -89,8 +89,8 @@ pub enum Error {
     InvalidOutcome = 102,
     /// Order ID does not exist.
     OrderNotFound = 103,
-    /// Caller is not the order's original trader.
-    NotOrderOwner = 104,
+    /// Caller is not authorized.
+    Unauthorized = 104,
     /// Order has already been fully filled or cancelled.
     OrderNotCancellable = 105,
     /// Market is not currently active for trading.
@@ -241,7 +241,7 @@ impl Market {
             return Err(Error::InvalidOutcome);
         }
 
-        if price < 1 || price > 9999 {
+        if !(1..=9999).contains(&price) {
             return Err(Error::InvalidPrice);
         }
         if quantity == 0 {
@@ -259,7 +259,7 @@ impl Market {
 
         match side {
             Side::Buy => {
-                let mut asks = get_asks(&env, outcome_id);
+                let asks = get_asks(&env, outcome_id);
                 let mut updated_asks = Vec::new(&env);
 
                 for i in 0..asks.len() {
@@ -318,7 +318,7 @@ impl Market {
                 }
             }
             Side::Sell => {
-                let mut bids = get_bids(&env, outcome_id);
+                let bids = get_bids(&env, outcome_id);
                 let mut updated_bids = Vec::new(&env);
 
                 for i in 0..bids.len() {
@@ -382,7 +382,9 @@ impl Market {
     }
 
     /// Cancels a resting limit order.
-    pub fn cancel_order(env: Env, order_id: u128) -> Result<(), Error> {
+    pub fn cancel_order(env: Env, trader: Address, order_id: u128) -> Result<(), Error> {
+        trader.require_auth();
+
         let status: MarketStatus = env
             .storage()
             .persistent()
@@ -402,55 +404,63 @@ impl Market {
             // Check bids
             let bids = get_bids(&env, outcome_id);
             let mut updated_bids = Vec::new(&env);
-            let mut bids_changed = false;
+            let mut found = false;
 
             for i in 0..bids.len() {
                 let bid = bids.get(i).unwrap();
                 if bid.order_id == order_id {
-                    bid.trader.require_auth();
+                    if bid.trader != trader {
+                        return Err(Error::Unauthorized);
+                    }
                     if bid.is_fully_filled() {
                         return Err(Error::OrderNotCancellable);
                     }
-                    bids_changed = true;
+                    found = true;
                 } else {
                     updated_bids.push_back(bid);
                 }
             }
 
-            if bids_changed {
+            if found {
                 set_bids(&env, outcome_id, &updated_bids);
                 env.events()
-                    .publish((Symbol::new(&env, "OrderCancelled"), order_id), ());
+                    .publish((Symbol::new(&env, "OrderCancelled"), order_id, trader), ());
                 return Ok(());
             }
 
             // Check asks
             let asks = get_asks(&env, outcome_id);
             let mut updated_asks = Vec::new(&env);
-            let mut asks_changed = false;
 
             for i in 0..asks.len() {
                 let ask = asks.get(i).unwrap();
                 if ask.order_id == order_id {
-                    ask.trader.require_auth();
+                    if ask.trader != trader {
+                        return Err(Error::Unauthorized);
+                    }
                     if ask.is_fully_filled() {
                         return Err(Error::OrderNotCancellable);
                     }
-                    asks_changed = true;
+                    found = true;
                 } else {
                     updated_asks.push_back(ask);
                 }
             }
 
-            if asks_changed {
+            if found {
                 set_asks(&env, outcome_id, &updated_asks);
                 env.events()
-                    .publish((Symbol::new(&env, "OrderCancelled"), order_id), ());
+                    .publish((Symbol::new(&env, "OrderCancelled"), order_id, trader), ());
                 return Ok(());
             }
         }
 
-        Err(Error::OrderNotFound)
+        let order_seq: u128 = env.storage().persistent().get(&KEY_ORDER_SEQ).unwrap_or(0);
+        if order_id > order_seq {
+            Err(Error::OrderNotFound)
+        } else {
+            Err(Error::OrderNotCancellable)
+        }
     }
 
     /// Returns the bids and asks aggregated as PriceLevels.
@@ -720,7 +730,7 @@ mod test {
     }
 
     #[test]
-    fn test_cancel_order() {
+    fn test_cancel_order_success() {
         let env = Env::default();
         env.mock_all_auths();
         let (_contract_id, client) = setup_market(&env);
@@ -730,12 +740,60 @@ mod test {
         let order_id = client.place_order(&trader, &0, &Side::Buy, &5000, &100);
         assert_eq!(order_id, 1);
 
-        // Cancel order
-        client.cancel_order(&order_id);
+        // Cancel order successfully as owner
+        client.cancel_order(&trader, &order_id);
 
         // Order book should be empty now
         let (bids, asks) = client.get_order_book(&0);
         assert_eq!(bids.levels.len(), 0);
         assert_eq!(asks.levels.len(), 0);
+    }
+
+    #[test]
+    fn test_cancel_order_by_non_owner_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (_contract_id, client) = setup_market(&env);
+
+        let trader = Address::generate(&env);
+        let non_owner = Address::generate(&env);
+
+        let order_id = client.place_order(&trader, &0, &Side::Buy, &5000, &100);
+        assert_eq!(order_id, 1);
+
+        // Cancel by non-owner should return Error::Unauthorized
+        let res = client.try_cancel_order(&non_owner, &order_id);
+        assert_eq!(res.unwrap_err(), Ok(Error::Unauthorized));
+    }
+
+    #[test]
+    fn test_cancel_non_existent_order_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (_contract_id, client) = setup_market(&env);
+
+        let trader = Address::generate(&env);
+
+        // Try to cancel an order ID that was never created
+        let res = client.try_cancel_order(&trader, &999);
+        assert_eq!(res.unwrap_err(), Ok(Error::OrderNotFound));
+    }
+
+    #[test]
+    fn test_cancel_already_filled_order_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (_contract_id, client) = setup_market(&env);
+
+        let maker = Address::generate(&env);
+        let taker = Address::generate(&env);
+
+        // Place and fill order
+        let ask_id = client.place_order(&maker, &0, &Side::Sell, &5000, &100);
+        let _buy_id = client.place_order(&taker, &0, &Side::Buy, &5000, &100);
+
+        // Try to cancel the now fully filled ask order
+        let res = client.try_cancel_order(&maker, &ask_id);
+        assert_eq!(res.unwrap_err(), Ok(Error::OrderNotCancellable));
     }
 }
