@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror,
-    Address, Env, String, Vec, Map, Symbol, symbol_short, log,
+    contract, contracterror, contractimpl, contracttype, log, symbol_short, Address, Env, Map,
+    String, Symbol, Vec,
 };
 use stellarmarket_shared::{MarketStatus, SharedError};
 
@@ -10,12 +10,12 @@ use stellarmarket_shared::{MarketStatus, SharedError};
 // STORAGE KEYS
 // ============================================================
 
-const KEY_MARKET_COUNT: Symbol      = symbol_short!("MKT_CNT");
-const KEY_PROPOSAL_COUNT: Symbol    = symbol_short!("PROP_CNT");
-const KEY_MAINTAINERS: Symbol       = symbol_short!("MNTNERS");
-const KEY_THRESHOLD: Symbol         = symbol_short!("THRESHOLD");
-const KEY_MARKETS: Symbol           = symbol_short!("MARKETS");
-const KEY_PROPOSALS: Symbol          = symbol_short!("PROPOSALS");
+const KEY_MARKET_COUNT: Symbol = symbol_short!("MKT_CNT");
+const KEY_PROPOSAL_COUNT: Symbol = symbol_short!("PROP_CNT");
+const KEY_MAINTAINERS: Symbol = symbol_short!("MNTNERS");
+const KEY_THRESHOLD: Symbol = symbol_short!("THRESHOLD");
+const KEY_MARKETS: Symbol = symbol_short!("MARKETS");
+const KEY_PROPOSALS: Symbol = symbol_short!("PROPOSALS");
 
 // ============================================================
 // DATA TYPES
@@ -129,8 +129,12 @@ impl MarketFactory {
             return Err(Error::InvalidThreshold);
         }
 
-        env.storage().persistent().set(&KEY_MAINTAINERS, &maintainers);
-        env.storage().persistent().set(&KEY_THRESHOLD, &approval_threshold);
+        env.storage()
+            .persistent()
+            .set(&KEY_MAINTAINERS, &maintainers);
+        env.storage()
+            .persistent()
+            .set(&KEY_THRESHOLD, &approval_threshold);
         env.storage().persistent().set(&KEY_MARKET_COUNT, &0u64);
         env.storage().persistent().set(&KEY_PROPOSAL_COUNT, &0u64);
 
@@ -199,10 +203,16 @@ impl MarketFactory {
 
         proposals.set(new_proposal_id, proposal);
         env.storage().persistent().set(&KEY_PROPOSALS, &proposals);
-        env.storage().persistent().set(&KEY_PROPOSAL_COUNT, &new_proposal_id);
+        env.storage()
+            .persistent()
+            .set(&KEY_PROPOSAL_COUNT, &new_proposal_id);
 
         env.events().publish(
-            (Symbol::new(&env, "MarketProposed"), new_proposal_id, proposer),
+            (
+                Symbol::new(&env, "MarketProposed"),
+                new_proposal_id,
+                proposer,
+            ),
             question,
         );
 
@@ -216,22 +226,14 @@ impl MarketFactory {
     /// * `env` - The environment.
     /// * `maintainer` - The address of the maintainer approving the proposal.
     /// * `proposal_id` - The ID of the proposal to approve.
-    pub fn approve_market(
-        env: Env,
-        maintainer: Address,
-        proposal_id: u64,
-    ) -> Result<(), Error> {
+    pub fn approve_market(env: Env, maintainer: Address, proposal_id: u64) -> Result<(), Error> {
         maintainer.require_auth();
 
         if !env.storage().persistent().has(&KEY_MAINTAINERS) {
             return Err(Error::NotInitialized);
         }
 
-        let maintainers: Vec<Address> = env
-            .storage()
-            .persistent()
-            .get(&KEY_MAINTAINERS)
-            .unwrap();
+        let maintainers: Vec<Address> = env.storage().persistent().get(&KEY_MAINTAINERS).unwrap();
 
         if !maintainers.contains(&maintainer) {
             return Err(Error::NotAMaintainer);
@@ -261,15 +263,13 @@ impl MarketFactory {
         }
 
         approved_keys.set(key, true);
-        env.storage().persistent().set(&symbol_short!("APP_KEYS"), &approved_keys);
+        env.storage()
+            .persistent()
+            .set(&symbol_short!("APP_KEYS"), &approved_keys);
 
         proposal.approval_count += 1;
 
-        let threshold: u32 = env
-            .storage()
-            .persistent()
-            .get(&KEY_THRESHOLD)
-            .unwrap();
+        let threshold: u32 = env.storage().persistent().get(&KEY_THRESHOLD).unwrap();
 
         if proposal.approval_count >= threshold {
             proposal.decided = true;
@@ -301,10 +301,16 @@ impl MarketFactory {
 
             markets.set(new_market_id, market);
             env.storage().persistent().set(&KEY_MARKETS, &markets);
-            env.storage().persistent().set(&KEY_MARKET_COUNT, &new_market_id);
+            env.storage()
+                .persistent()
+                .set(&KEY_MARKET_COUNT, &new_market_id);
 
             env.events().publish(
-                (Symbol::new(&env, "MarketApproved"), new_market_id, proposal_id),
+                (
+                    Symbol::new(&env, "MarketApproved"),
+                    new_market_id,
+                    proposal_id,
+                ),
                 (),
             );
         }
@@ -334,11 +340,7 @@ impl MarketFactory {
             return Err(Error::NotInitialized);
         }
 
-        let maintainers: Vec<Address> = env
-            .storage()
-            .persistent()
-            .get(&KEY_MAINTAINERS)
-            .unwrap();
+        let maintainers: Vec<Address> = env.storage().persistent().get(&KEY_MAINTAINERS).unwrap();
 
         if !maintainers.contains(&maintainer) {
             return Err(Error::NotAMaintainer);
@@ -360,10 +362,8 @@ impl MarketFactory {
         proposals.set(proposal_id, proposal);
         env.storage().persistent().set(&KEY_PROPOSALS, &proposals);
 
-        env.events().publish(
-            (Symbol::new(&env, "MarketRejected"), proposal_id),
-            reason,
-        );
+        env.events()
+            .publish((Symbol::new(&env, "MarketRejected"), proposal_id), reason);
 
         Ok(())
     }
@@ -453,7 +453,7 @@ impl MarketFactory {
 #[cfg(test)]
 mod test {
     use super::*;
-    use soroban_sdk::{Env, testutils::Address as _, String, Vec};
+    use soroban_sdk::{testutils::Address as _, Env, String, Vec};
 
     #[test]
     fn test_initialize_once() {
@@ -488,20 +488,15 @@ mod test {
 
         let proposer = Address::generate(&env);
         let question = String::from_str(&env, "Will Bitcoin exceed $100k by end of year?");
-        let outcomes = Vec::from_array(&env, [
-            String::from_str(&env, "YES"),
-            String::from_str(&env, "NO"),
-        ]);
+        let outcomes = Vec::from_array(
+            &env,
+            [String::from_str(&env, "YES"), String::from_str(&env, "NO")],
+        );
         let resolution_date = env.ledger().timestamp() + 3600;
         let oracle = Address::generate(&env);
 
-        let proposal_id = client.propose_market(
-            &proposer,
-            &question,
-            &outcomes,
-            &resolution_date,
-            &oracle,
-        );
+        let proposal_id =
+            client.propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
 
         assert_eq!(proposal_id, 1);
 
@@ -549,20 +544,15 @@ mod test {
 
         let proposer = Address::generate(&env);
         let question = String::from_str(&env, "Spam Question");
-        let outcomes = Vec::from_array(&env, [
-            String::from_str(&env, "YES"),
-            String::from_str(&env, "NO"),
-        ]);
+        let outcomes = Vec::from_array(
+            &env,
+            [String::from_str(&env, "YES"), String::from_str(&env, "NO")],
+        );
         let resolution_date = env.ledger().timestamp() + 3600;
         let oracle = Address::generate(&env);
 
-        let proposal_id = client.propose_market(
-            &proposer,
-            &question,
-            &outcomes,
-            &resolution_date,
-            &oracle,
-        );
+        let proposal_id =
+            client.propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
 
         // Reject
         let reason = String::from_str(&env, "Spam proposal");
@@ -593,21 +583,30 @@ mod test {
 
         // Empty question
         let question = String::from_str(&env, "");
-        let outcomes = Vec::from_array(&env, [String::from_str(&env, "YES"), String::from_str(&env, "NO")]);
+        let outcomes = Vec::from_array(
+            &env,
+            [String::from_str(&env, "YES"), String::from_str(&env, "NO")],
+        );
         let resolution_date = env.ledger().timestamp() + 3600;
-        let res = client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
+        let res =
+            client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
         assert!(res.is_err());
 
         // Less than 2 outcomes
         let question = String::from_str(&env, "Valid question?");
         let outcomes = Vec::from_array(&env, [String::from_str(&env, "YES")]);
-        let res = client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
+        let res =
+            client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
         assert!(res.is_err());
 
         // Past resolution date
-        let outcomes = Vec::from_array(&env, [String::from_str(&env, "YES"), String::from_str(&env, "NO")]);
+        let outcomes = Vec::from_array(
+            &env,
+            [String::from_str(&env, "YES"), String::from_str(&env, "NO")],
+        );
         let resolution_date = 0;
-        let res = client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
+        let res =
+            client.try_propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
         assert!(res.is_err());
     }
 
@@ -625,13 +624,17 @@ mod test {
 
         let proposer = Address::generate(&env);
         let oracle = Address::generate(&env);
-        let outcomes = Vec::from_array(&env, [String::from_str(&env, "YES"), String::from_str(&env, "NO")]);
+        let outcomes = Vec::from_array(
+            &env,
+            [String::from_str(&env, "YES"), String::from_str(&env, "NO")],
+        );
         let resolution_date = env.ledger().timestamp() + 3600;
 
         // Create 12 markets
         for _ in 1..=12 {
             let question = String::from_str(&env, "Question");
-            let proposal_id = client.propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
+            let proposal_id =
+                client.propose_market(&proposer, &question, &outcomes, &resolution_date, &oracle);
             client.approve_market(&m1, &proposal_id);
         }
 
