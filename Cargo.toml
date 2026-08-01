@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/market",
+    "contracts/market-factory",
+    "contracts/oracle",
+    "contracts/outcome-token",
+    "contracts/settlement",
+    "contracts/stellarmarket-shared"
+]
+
+[workspace.dependencies]
+soroban-sdk = { version = "22.0.11" }
+stellarmarket-shared = { path = "contracts/stellarmarket-shared" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+panic = "abort"
+lto = true
+codegen-units = 1
+
+[profile.release-with-logs]
+inherits = "release"
+debug = true
+
+[patch.crates-io]
+spin = { path = "/home/kc/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spin-0.9.8" }
+
