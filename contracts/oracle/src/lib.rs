@@ -1,5 +1,5 @@
 #![no_std]
- 
+
 //! # OracleContract
 //!
 //! Aggregates outcome reports from approved oracle providers and
@@ -15,37 +15,37 @@
 //!    `finalize_resolution()` to lock in the result.
 //! 5. If consensus is not reached, `dispute_resolution()` escalates to
 //!    the `GovernanceContract`.
- 
+
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror,
-    Address, Env, Vec, Map, Symbol, symbol_short, log,
+    contract, contracterror, contractimpl, contracttype, log, symbol_short, Address, Env, Map,
+    Symbol, Vec,
 };
 use stellarmarket_shared::SharedError;
- 
+
 // ============================================================
 // CONFIGURATION CONSTANTS
 // ============================================================
- 
+
 /// Default dispute window: 48 hours in seconds.
 pub const DEFAULT_DISPUTE_WINDOW_SECS: u64 = 48 * 60 * 60;
- 
+
 /// Numerator of the required consensus fraction (2 out of 3 = 66.6%).
 pub const CONSENSUS_NUMERATOR: u32 = 2;
 /// Denominator of the required consensus fraction.
 pub const CONSENSUS_DENOMINATOR: u32 = 3;
- 
+
 // ============================================================
 // STORAGE KEYS
 // ============================================================
- 
-const KEY_GOVERNANCE:       Symbol = symbol_short!("GOV");
-const KEY_PROVIDERS:        Symbol = symbol_short!("PROVDRS");
-const KEY_DISPUTE_WINDOW:   Symbol = symbol_short!("DISP_WIN");
- 
+
+const KEY_GOVERNANCE: Symbol = symbol_short!("GOV");
+const KEY_PROVIDERS: Symbol = symbol_short!("PROVDRS");
+const KEY_DISPUTE_WINDOW: Symbol = symbol_short!("DISP_WIN");
+
 // ============================================================
 // DATA TYPES
 // ============================================================
- 
+
 /// A single resolution report submitted by one oracle provider.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -61,7 +61,7 @@ pub struct OracleReport {
     /// Provider confidence score (0–100).
     pub confidence: u32,
 }
- 
+
 /// Aggregated resolution state for a market.
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -77,11 +77,11 @@ pub struct ResolutionState {
     /// Whether a dispute has been raised.
     pub disputed: bool,
 }
- 
+
 // ============================================================
 // ERRORS
 // ============================================================
- 
+
 #[contracterror]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
