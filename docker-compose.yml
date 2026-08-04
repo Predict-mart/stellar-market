@@ -1,0 +1,120 @@
+services:
+  # ──────────────────────────────────────────
+  # Stellar local node (Core + Horizon bundled)
+  # ──────────────────────────────────────────
+  stellar-node:
+    image: stellar/quickstart:latest
+    container_name: stellarmarket-stellar
+    ports:
+      - "8000:8000"   # Horizon API
+      - "11625:11625" # Stellar Core peer
+    environment:
+      - NETWORK=local
+    command: --local --enable-soroban-rpc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - stellar-data:/opt/stellar
+
+  # ──────────────────────────────────────────
+  # PostgreSQL
+  # ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: stellarmarket-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: stellarmarket
+      POSTGRES_USER: stellarmarket
+      POSTGRES_PASSWORD: stellarmarket
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stellarmarket -d stellarmarket"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ──────────────────────────────────────────
+  # Redis
+  # ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: stellarmarket-redis
+    ports:
+      - "6389:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ──────────────────────────────────────────
+  # Backend API + Indexer
+  # ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: stellarmarket-backend
+    ports:
+      - "3001:3001"   # REST API
+      - "3002:3002"   # WebSocket
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      WS_PORT: 3002
+      DATABASE_URL: postgresql://stellarmarket:stellarmarket@postgres:5432/stellarmarket
+      REDIS_URL: redis://redis:6379
+      HORIZON_URL: http://stellar-node:8000
+      STELLAR_NETWORK: local
+      POLL_INTERVAL_MS: 2000
+    volumes:
+      - ./backend/src:/app/src:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      stellar-node:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────
+  # Frontend
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: stellarmarket-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_WS_URL: ws://localhost:3002
+      NEXT_PUBLIC_STELLAR_NETWORK: local
+    volumes:
+      - ./frontend/app:/app/app:ro
+      - ./frontend/components:/app/components:ro
+      - ./frontend/lib:/app/lib:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  stellar-data:
+  postgres-data:
+  redis-data:
