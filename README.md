@@ -1,4 +1,4 @@
-# 🌟 StellarMarket
+# 🌟 SteMart
 
 > **Predict. Trade. Settle. Trustlessly.**
 
@@ -8,9 +8,9 @@ A decentralized prediction markets platform built on the Stellar blockchain usin
 
 ## Vision
 
-StellarMarket is an open-source, community-governed prediction markets protocol that enables anyone to trade on the outcomes of real-world events — elections, sports, finance, technology, and global news — with near-zero fees, instant finality, and full on-chain settlement.
+SteMart is an open-source, community-governed prediction markets protocol that enables anyone to trade on the outcomes of real-world events — elections, sports, finance, technology, and global news — with near-zero fees, instant finality, and full on-chain settlement.
 
-We believe prediction markets are one of the most powerful tools for aggregating distributed knowledge. StellarMarket makes them accessible to the world.
+We believe prediction markets are one of the most powerful tools for aggregating distributed knowledge. SteMart makes them accessible to the world.
 
 ---
 
