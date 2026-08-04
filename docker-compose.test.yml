@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: stellarmarket-postgres-test
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: stellarmarket_test
+      POSTGRES_USER: stellarmarket
+      POSTGRES_PASSWORD: stellarmarket
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stellarmarket -d stellarmarket_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: stellarmarket-redis-test
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
