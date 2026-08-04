@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"lib/wallet.tsx -> @stellar/freighter-api\":{\"id\":\"lib/wallet.tsx -> @stellar/freighter-api\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_stellar_freighter-api_build_index_min_js.js\"]}}"
